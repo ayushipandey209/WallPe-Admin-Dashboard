@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, UserX, UserCheck, Send, Eye, MoreHorizontal } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, UserX, UserCheck, Send, Eye, MoreHorizontal, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,19 +9,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { mockUsers, mockListings, type User } from '../data/mockData';
+import { ProfileService, type ProfileWithStats } from '../services';
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<ProfileWithStats[]>([]);
+  const [selectedUser, setSelectedUser] = useState<ProfileWithStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch users from Supabase
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await ProfileService.getAllProfiles();
+        setUsers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch users');
+        console.error('Error fetching users:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   // Filter users based on search and status
   const filteredUsers = users.filter(user => {
     const matchesSearch = !searchQuery || 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.name && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       user.phone.includes(searchQuery);
     
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
@@ -29,10 +50,18 @@ export function UserManagement() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusChange = (userId: string, newStatus: 'active' | 'suspended' | 'pending') => {
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, status: newStatus } : user
-    ));
+  const handleStatusChange = async (userId: string, newStatus: 'active' | 'suspended' | 'pending') => {
+    try {
+      // Update the user status in Supabase
+      // Note: You might need to add a status field to your profile table
+      // For now, we'll just update the local state
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, status: newStatus } : user
+      ));
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      setError('Failed to update user status');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -45,12 +74,36 @@ export function UserManagement() {
   };
 
   const getUserListings = (userId: string) => {
-    return mockListings.filter(listing => listing.userId === userId);
+    // TODO: Implement when you have a listings table
+    return [];
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null) => {
+    if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading users...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -107,20 +160,20 @@ export function UserManagement() {
                           <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{user.name}</p>
+                          <p className="font-medium">{user.name || 'Unknown User'}</p>
                           <p className="text-sm text-muted-foreground">ID: {user.id}</p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="text-sm">{user.email}</p>
+                        <p className="text-sm">{user.email || 'No email'}</p>
                         <p className="text-sm text-muted-foreground">{user.phone}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">{user.totalListings}</TableCell>
-                    <TableCell className="text-center">{user.activeCampaigns}</TableCell>
-                    <TableCell>{new Date(user.joinDate).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-center">{user.totalListings || 0}</TableCell>
+                    <TableCell className="text-center">{user.activeCampaigns || 0}</TableCell>
+                    <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>{getStatusBadge(user.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -143,8 +196,8 @@ export function UserManagement() {
                                     <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <h3 className="text-lg font-medium">{selectedUser.name}</h3>
-                                    <p className="text-muted-foreground">{selectedUser.email}</p>
+                                    <h3 className="text-lg font-medium">{selectedUser.name || 'Unknown User'}</h3>
+                                    <p className="text-muted-foreground">{selectedUser.email || 'No email'}</p>
                                     <p className="text-muted-foreground">{selectedUser.phone}</p>
                                   </div>
                                 </div>
@@ -154,7 +207,7 @@ export function UserManagement() {
                                   <Card>
                                     <CardContent className="pt-4">
                                       <div className="text-center">
-                                        <div className="text-2xl font-bold">{selectedUser.totalListings}</div>
+                                        <div className="text-2xl font-bold">{selectedUser.totalListings || 0}</div>
                                         <p className="text-xs text-muted-foreground">Total Listings</p>
                                       </div>
                                     </CardContent>
@@ -162,7 +215,7 @@ export function UserManagement() {
                                   <Card>
                                     <CardContent className="pt-4">
                                       <div className="text-center">
-                                        <div className="text-2xl font-bold">{selectedUser.activeCampaigns}</div>
+                                        <div className="text-2xl font-bold">{selectedUser.activeCampaigns || 0}</div>
                                         <p className="text-xs text-muted-foreground">Active Campaigns</p>
                                       </div>
                                     </CardContent>
@@ -170,7 +223,7 @@ export function UserManagement() {
                                   <Card>
                                     <CardContent className="pt-4">
                                       <div className="text-center">
-                                        <div className="text-2xl font-bold">{new Date(selectedUser.joinDate).getFullYear()}</div>
+                                        <div className="text-2xl font-bold">{new Date(selectedUser.created_at).getFullYear()}</div>
                                         <p className="text-xs text-muted-foreground">Member Since</p>
                                       </div>
                                     </CardContent>
