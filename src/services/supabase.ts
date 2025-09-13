@@ -44,6 +44,7 @@ export interface Database {
           location: any | null; // geometry type
           length_in: number | null;
           width_in: number | null;
+          list_status: 'pending' | 'approved' | 'rejected' | null;
         };
         Insert: {
           id?: string;
@@ -59,6 +60,7 @@ export interface Database {
           location?: any | null;
           length_in?: number | null;
           width_in?: number | null;
+          list_status?: 'pending' | 'approved' | 'rejected' | null;
         };
         Update: {
           id?: string;
@@ -74,6 +76,7 @@ export interface Database {
           location?: any | null;
           length_in?: number | null;
           width_in?: number | null;
+          list_status?: 'pending' | 'approved' | 'rejected' | null;
         };
       };
       address: {

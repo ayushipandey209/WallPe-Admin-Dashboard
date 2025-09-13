@@ -4,7 +4,7 @@ export interface ListingWithDetails extends Space {
   address?: Address | null;
   media?: SpaceMedia[];
   profile?: Profile | null;
-  status?: 'pending' | 'approved' | 'denied';
+  // status is now derived from list_status field in the database
 }
 
 export interface ListingFilters {
@@ -45,11 +45,11 @@ export class ListingService {
       console.log('Fetched listings data:', data);
       console.log('Number of listings:', data?.length || 0);
 
-      // Transform data to include status (you might want to add a status field to your space table)
+      // Transform data to include media
       const transformedData = data.map(space => ({
         ...space,
         media: space.space_media || [],
-        status: 'pending' as const, // Default status, you can modify this based on your business logic
+        // list_status is already included from the database query
       }));
 
       console.log('Transformed listings data:', transformedData);
@@ -128,7 +128,7 @@ export class ListingService {
         address: addressResult.data,
         media: mediaResult.data || [],
         profile: profileResult.data,
-        status: 'pending' as const,
+        // list_status is already included from spaceData
       };
 
       console.log('Final result:', result);
@@ -173,7 +173,7 @@ export class ListingService {
       return data.map(space => ({
         ...space,
         media: space.space_media || [],
-        status: 'pending' as const,
+        // list_status is already included from the database query
       }));
     } catch (error) {
       console.error('Error in getListingsFiltered:', error);
@@ -223,7 +223,7 @@ export class ListingService {
       const transformedData = data.map(space => ({
         ...space,
         media: space.space_media || [],
-        status: 'pending' as const,
+        // list_status is already included from the database query
       }));
 
       return {
@@ -241,22 +241,21 @@ export class ListingService {
   /**
    * Update listing status (approve/deny)
    */
-  static async updateListingStatus(id: string, status: 'approved' | 'denied'): Promise<void> {
+  static async updateListingStatus(id: string, status: 'approved' | 'rejected'): Promise<void> {
     try {
-      // Note: You might want to add a status field to your space table
-      // For now, we'll just log the action
-      console.log(`Updating listing ${id} status to ${status}`);
+      console.log(`Updating listing ${id} list_status to ${status}`);
       
-      // If you add a status field to your space table, uncomment this:
-      // const { error } = await supabase
-      //   .from('space')
-      //   .update({ status })
-      //   .eq('id', id);
+      const { error } = await supabase
+        .from('space')
+        .update({ list_status: status })
+        .eq('id', id);
 
-      // if (error) {
-      //   console.error('Error updating listing status:', error);
-      //   throw error;
-      // }
+      if (error) {
+        console.error('Error updating listing status:', error);
+        throw error;
+      }
+      
+      console.log(`Successfully updated listing ${id} status to ${status}`);
     } catch (error) {
       console.error('Error in updateListingStatus:', error);
       throw error;
@@ -294,7 +293,7 @@ export class ListingService {
     try {
       const { data: spaces, error: spacesError } = await supabase
         .from('space')
-        .select('type');
+        .select('type, list_status');
 
       if (spacesError) {
         console.error('Error fetching listing stats:', spacesError);
@@ -307,8 +306,12 @@ export class ListingService {
         return acc;
       }, {} as Record<string, number>);
 
-      // For now, all listings are pending since we don't have a status field
-      const byStatus = { pending: total, approved: 0, denied: 0 };
+      // Count by actual list_status from database
+      const byStatus = spaces.reduce((acc, space) => {
+        const status = space.list_status || 'pending';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
       return { total, byType, byStatus };
     } catch (error) {

@@ -54,7 +54,7 @@ export function ListingsManagement() {
           location: null,
           length_in: 120,
           width_in: 96,
-          status: mock.status,
+          list_status: mock.status === 'denied' ? 'rejected' : mock.status,
           media: mock.images.map((url, index) => ({
             id: `mock-media-${index}`,
             created_at: new Date().toISOString(),
@@ -86,7 +86,7 @@ export function ListingsManagement() {
       (listing.notes && listing.notes.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesType = typeFilter === 'all' || listing.type === typeFilter;
-    const matchesStatus = statusFilter === 'all' || listing.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || listing.list_status === statusFilter;
     
     return matchesSearch && matchesType && matchesStatus;
   });
@@ -107,11 +107,11 @@ export function ListingsManagement() {
     }
   };
 
-  const handleStatusChange = async (listingId: string, newStatus: 'approved' | 'denied') => {
+  const handleStatusChange = async (listingId: string, newStatus: 'approved' | 'rejected') => {
     try {
       await ListingService.updateListingStatus(listingId, newStatus);
       setListings(listings.map(listing => 
-        listing.id === listingId ? { ...listing, status: newStatus } : listing
+        listing.id === listingId ? { ...listing, list_status: newStatus } : listing
       ));
     } catch (err) {
       console.error('Error updating listing status:', err);
@@ -119,7 +119,7 @@ export function ListingsManagement() {
     }
   };
 
-  const handleBulkAction = async (action: 'approve' | 'deny' | 'export') => {
+  const handleBulkAction = async (action: 'approve' | 'reject' | 'export') => {
     if (action === 'export') {
       // Mock export functionality
       console.log('Exporting selected listings:', selectedListings);
@@ -129,13 +129,13 @@ export function ListingsManagement() {
     try {
       // Update all selected listings
       const updatePromises = selectedListings.map(id => 
-        ListingService.updateListingStatus(id, action === 'approve' ? 'approved' : 'denied')
+        ListingService.updateListingStatus(id, action === 'approve' ? 'approved' : 'rejected')
       );
       await Promise.all(updatePromises);
 
       setListings(listings.map(listing => 
         selectedListings.includes(listing.id) 
-          ? { ...listing, status: action === 'approve' ? 'approved' : 'denied' }
+          ? { ...listing, list_status: action === 'approve' ? 'approved' : 'rejected' }
           : listing
       ));
       setSelectedListings([]);
@@ -153,7 +153,7 @@ export function ListingsManagement() {
     const variants = {
       approved: 'default' as const,
       pending: 'secondary' as const,
-      denied: 'destructive' as const
+      rejected: 'destructive' as const
     };
     return <Badge variant={variants[status as keyof typeof variants] || 'secondary'}>{status}</Badge>;
   };
@@ -257,7 +257,7 @@ export function ListingsManagement() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="denied">Denied</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -270,9 +270,9 @@ export function ListingsManagement() {
                 <Check className="w-4 h-4 mr-2" />
                 Approve
               </Button>
-              <Button size="sm" variant="destructive" onClick={() => handleBulkAction('deny')}>
+              <Button size="sm" variant="destructive" onClick={() => handleBulkAction('reject')}>
                 <X className="w-4 h-4 mr-2" />
-                Deny
+                Reject
               </Button>
               <Button size="sm" variant="outline" onClick={() => handleBulkAction('export')}>
                 <Download className="w-4 h-4 mr-2" />
@@ -324,7 +324,7 @@ export function ListingsManagement() {
                       }
                     </TableCell>
                     <TableCell>{getTypeBadge(listing.type)}</TableCell>
-                    <TableCell>{getStatusBadge(listing.status || 'pending')}</TableCell>
+                    <TableCell>{getStatusBadge(listing.list_status || 'pending')}</TableCell>
                     <TableCell>
                       {listing.length_ft && listing.width_ft ? 
                         `${listing.length_ft}ft × ${listing.width_ft}ft` : 
@@ -369,8 +369,8 @@ export function ListingsManagement() {
                             <DropdownMenuItem onClick={() => handleStatusChange(listing.id, 'approved')}>
                               Approve
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(listing.id, 'denied')}>
-                              Deny
+                            <DropdownMenuItem onClick={() => handleStatusChange(listing.id, 'rejected')}>
+                              Reject
                             </DropdownMenuItem>
                             <DropdownMenuItem>Send Notification</DropdownMenuItem>
                           </DropdownMenuContent>

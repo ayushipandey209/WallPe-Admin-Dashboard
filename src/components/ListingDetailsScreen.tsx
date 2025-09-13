@@ -106,13 +106,13 @@ export function ListingDetailsScreen() {
     fetchListing();
   }, [id]);
 
-  const handleStatusChange = async (newStatus: 'approved' | 'denied') => {
+  const handleStatusChange = async (newStatus: 'approved' | 'rejected') => {
     if (!listing) return;
 
     try {
       setActionLoading(true);
       await ListingService.updateListingStatus(listing.id, newStatus);
-      setListing({ ...listing, status: newStatus });
+      setListing({ ...listing, list_status: newStatus });
     } catch (err) {
       console.error('Error updating listing status:', err);
       setError('Failed to update listing status. Please try again.');
@@ -125,7 +125,7 @@ export function ListingDetailsScreen() {
     const variants = {
       approved: 'default' as const,
       pending: 'secondary' as const,
-      denied: 'destructive' as const
+      rejected: 'destructive' as const
     };
     return <Badge variant={variants[status as keyof typeof variants] || 'secondary'}>{status}</Badge>;
   };
@@ -208,7 +208,7 @@ export function ListingDetailsScreen() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {getStatusBadge(listing.status || 'pending')}
+              {getStatusBadge(listing.list_status || 'pending')}
               {getTypeBadge(listing.type)}
             </div>
           </div>
@@ -433,7 +433,7 @@ export function ListingDetailsScreen() {
                 <Button
                   className="w-full"
                   onClick={() => handleStatusChange('approved')}
-                  disabled={listing.status === 'approved' || actionLoading}
+                  disabled={listing.list_status === 'approved' || actionLoading}
                 >
                   <Check className="w-4 h-4 mr-2" />
                   {actionLoading ? 'Processing...' : 'Approve Listing'}
@@ -441,11 +441,11 @@ export function ListingDetailsScreen() {
                 <Button
                   variant="destructive"
                   className="w-full"
-                  onClick={() => handleStatusChange('denied')}
-                  disabled={listing.status === 'denied' || actionLoading}
+                  onClick={() => handleStatusChange('rejected')}
+                  disabled={listing.list_status === 'rejected' || actionLoading}
                 >
                   <X className="w-4 h-4 mr-2" />
-                  {actionLoading ? 'Processing...' : 'Deny Listing'}
+                  {actionLoading ? 'Processing...' : 'Reject Listing'}
                 </Button>
               </CardContent>
             </Card>
@@ -458,7 +458,7 @@ export function ListingDetailsScreen() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Status</span>
-                  {getStatusBadge(listing.status || 'pending')}
+                  {getStatusBadge(listing.list_status || 'pending')}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Type</span>
