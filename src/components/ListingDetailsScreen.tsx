@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Check, X, MapPin, User, Calendar, Phone, Ruler, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, X, MapPin, User, Calendar, Phone, Ruler, Image as ImageIcon, Loader2, ChevronLeft, ChevronRight, Star, Clock, Shield, Truck, Award } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -15,6 +15,7 @@ export function ListingDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Extract ID from URL pathname as fallback if useParams fails
   const getSpaceId = () => {
@@ -90,6 +91,57 @@ export function ListingDetailsScreen() {
         
         if (listingData) {
           console.log('Successfully fetched real listing data:', listingData);
+          console.log('Media data in listing:', listingData.media);
+          console.log('Media length:', listingData.media?.length);
+          
+          // If no media data, add some sample images for testing
+          if (!listingData.media || listingData.media.length === 0) {
+            console.log('No media found, adding sample images for testing');
+            listingData.media = [
+              {
+                id: 'sample-1',
+                created_at: new Date().toISOString(),
+                space_id: listingData.id,
+                type: 'image',
+                url: 'https://picsum.photos/800/800?random=1',
+                metadata: null
+              },
+              {
+                id: 'sample-2',
+                created_at: new Date().toISOString(),
+                space_id: listingData.id,
+                type: 'image',
+                url: 'https://picsum.photos/800/800?random=2',
+                metadata: null
+              },
+              {
+                id: 'sample-3',
+                created_at: new Date().toISOString(),
+                space_id: listingData.id,
+                type: 'image',
+                url: 'https://picsum.photos/800/800?random=3',
+                metadata: null
+              },
+              {
+                id: 'sample-4',
+                created_at: new Date().toISOString(),
+                space_id: listingData.id,
+                type: 'image',
+                url: 'https://picsum.photos/800/800?random=4',
+                metadata: null
+              },
+              {
+                id: 'sample-5',
+                created_at: new Date().toISOString(),
+                space_id: listingData.id,
+                type: 'image',
+                url: 'https://picsum.photos/800/800?random=5',
+                metadata: null
+              }
+            ];
+            console.log('Added sample media:', listingData.media);
+          }
+          
           setListing(listingData);
         } else {
           console.error('No listing found in database for ID:', id);
@@ -119,6 +171,23 @@ export function ListingDetailsScreen() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Image carousel functions
+  const nextImage = () => {
+    if (listing?.media && listing.media.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % listing.media!.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (listing?.media && listing.media.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + listing.media!.length) % listing.media!.length);
+    }
+  };
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index);
   };
 
   const getStatusBadge = (status: string) => {
@@ -215,273 +284,336 @@ export function ListingDetailsScreen() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Basic Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Listing Name</label>
-                    <p className="text-lg font-semibold">{listing.name}</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+          {/* Left Side - Image Carousel */}
+          <div className="order-2 lg:order-1 max-w-lg mx-auto lg:max-w-none">
+            {/* Main Image Display */}
+            <div className="relative bg-white rounded-xl border-4 border-gray-200 shadow-2xl overflow-hidden mb-6 p-2">
+              {(() => {
+                console.log('Rendering carousel - listing.media:', listing.media);
+                console.log('Media length:', listing.media?.length);
+                console.log('Current image index:', currentImageIndex);
+                return null;
+              })()}
+              {listing.media && listing.media.length > 0 ? (
+                <>
+                  <div className="relative aspect-square max-h-96 lg:max-h-[400px]">
+                    <img
+                      src={listing.media[currentImageIndex]?.url}
+                      alt={`Space image ${currentImageIndex + 1}`}
+                      className="w-full h-full object-cover transition-all duration-300 rounded-lg"
+                      onError={(e) => {
+                        console.error('Failed to load image:', listing.media?.[currentImageIndex]?.url);
+                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OTk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
+                      }}
+                    />
+                    
+                    {/* Navigation Arrows */}
+                    {listing.media.length > 1 && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white shadow-lg border-2 border-gray-300 w-10 h-10 rounded-full"
+                          onClick={prevImage}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white shadow-lg border-2 border-gray-300 w-10 h-10 rounded-full"
+                          onClick={nextImage}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </Button>
+                      </>
+                    )}
+                    
+                    {/* Image Counter */}
+                    {listing.media.length > 1 && (
+                      <div className="absolute bottom-3 right-3 bg-black/80 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm border border-white/20">
+                        {currentImageIndex + 1} / {listing.media.length}
+                      </div>
+                    )}
+                    
+                    {/* Sample Image Indicator */}
+                    {listing.media.some(media => media.id.startsWith('sample-')) && (
+                      <div className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-3 py-1 rounded-full shadow-lg border border-white/20">
+                        Sample Images
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Type</label>
-                    <div className="mt-1">{getTypeBadge(listing.type)}</div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                    <p className="flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      {listing.phone_number || 'Not provided'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Created Date</label>
-                    <p className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}
+                </>
+              ) : (
+                <div className="aspect-square max-h-96 lg:max-h-[400px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <ImageIcon className="w-20 h-20 mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-500 text-lg">No images available</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Media data: {listing.media ? 'exists but empty' : 'not found'}
                     </p>
                   </div>
                 </div>
-                {listing.notes && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Notes</label>
-                    <p className="mt-1 p-3 bg-muted rounded-lg">{listing.notes}</p>
+              )}
+            </div>
+
+            {/* Thumbnail Gallery */}
+            {listing.media && listing.media.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide justify-center lg:justify-start">
+                {listing.media.map((media, index) => (
+                  <button
+                    key={media.id}
+                    onClick={() => goToImage(index)}
+                    className={`flex-shrink-0 w-16 h-16 sm:w-18 sm:h-18 rounded-lg border-2 overflow-hidden transition-all duration-200 ${
+                      index === currentImageIndex 
+                        ? 'border-blue-500 ring-2 ring-blue-200 scale-105' 
+                        : 'border-gray-300 hover:border-gray-400 hover:scale-105'
+                    }`}
+                  >
+                    <img
+                      src={media.url}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons - Below Carousel */}
+            <div className="space-y-4 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 text-center">Listing Actions</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  className="w-full h-12 text-lg font-semibold bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={() => handleStatusChange('approved')}
+                  disabled={listing.list_status === 'approved' || actionLoading}
+                  style={{ backgroundColor: '#059669', color: 'white' }}
+                >
+                  <Check className="w-6 h-6 mr-2" />
+                  {actionLoading ? 'Processing...' : 'Approve Listing'}
+                </button>
+                <button
+                  className="w-full h-12 text-lg font-semibold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  onClick={() => handleStatusChange('rejected')}
+                  disabled={listing.list_status === 'rejected' || actionLoading}
+                  style={{ backgroundColor: '#dc2626', color: 'white' }}
+                >
+                  <X className="w-6 h-6 mr-2" />
+                  {actionLoading ? 'Processing...' : 'Reject Listing'}
+                </button>
+              </div>
+              
+              {/* Status Info */}
+              <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <p className="text-sm text-gray-600">
+                  Current Status: <span className="font-bold text-lg">{listing.list_status || 'pending'}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Product Details */}
+          <div className="order-1 lg:order-2 space-y-8">
+            {/* Product Title & Status */}
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4 leading-tight">{listing.name}</h1>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  {getStatusBadge(listing.list_status || 'pending')}
+                  {getTypeBadge(listing.type)}
+                </div>
+                <p className="text-sm text-gray-500 font-mono">ID: {listing.id}</p>
+              </div>
+
+              {/* Key Features */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-8 border-y border-gray-200">
+                <div className="flex items-center gap-4 p-6 bg-blue-50 rounded-xl border border-blue-100">
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <Ruler className="w-6 h-6 text-blue-600" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Dimensions</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {listing.length_ft && listing.width_ft 
+                        ? `${listing.length_ft}ft × ${listing.width_ft}ft`
+                        : 'Not specified'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 p-6 bg-green-50 rounded-xl border border-green-100">
+                  <div className="p-3 bg-green-100 rounded-lg">
+                    <Award className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-medium">Total Area</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {listing.length_ft && listing.width_ft 
+                        ? `${listing.length_ft * listing.width_ft} sq ft`
+                        : 'Not calculated'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            {listing.notes && (
+              <div className="space-y-4 p-6 bg-gray-50 rounded-xl border border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Description</h3>
+                <p className="text-gray-700 leading-relaxed">{listing.notes}</p>
+              </div>
+            )}
+
+            {/* Space Specifications */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-gray-900">Space Specifications</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border-2 border-gray-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <Ruler className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">Length (Feet)</p>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{listing.length_ft || 'N/A'}</p>
+                </div>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border-2 border-gray-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <Ruler className="w-6 h-6 text-green-600" />
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">Width (Feet)</p>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{listing.width_ft || 'N/A'}</p>
+                </div>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border-2 border-gray-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <Ruler className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">Length (Inches)</p>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{listing.length_in || 'N/A'}</p>
+                </div>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border-2 border-gray-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-orange-100 rounded-lg">
+                      <Ruler className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">Width (Inches)</p>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{listing.width_in || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Contact Information</h3>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm text-gray-500">Phone Number</p>
+                    <p className="font-semibold">{listing.phone_number || 'Not provided'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Owner Information */}
             {listing.profile && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Owner Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Owner Details</h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-600" />
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Owner Name</label>
-                      <p className="text-lg">{listing.profile.name || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                      <p className="flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        {listing.profile.phone}
-                      </p>
+                      <p className="text-sm text-gray-500">Owner Name</p>
+                      <p className="font-semibold">{listing.profile.name || 'Not provided'}</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-gray-600" />
+                    <div>
+                      <p className="text-sm text-gray-500">Owner Phone</p>
+                      <p className="font-semibold">{listing.profile.phone}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Address Information */}
             {listing.address && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5" />
-                    Address Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Full Address</label>
-                      <p className="text-lg">{formatAddress(listing.address)}</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Address Line 1</label>
-                        <p>{listing.address.address_line1 || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Address Line 2</label>
-                        <p>{listing.address.address_line2 || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Village</label>
-                        <p>{listing.address.village || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">City</label>
-                        <p>{listing.address.city || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">District</label>
-                        <p>{listing.address.district || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">State</label>
-                        <p>{listing.address.state || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Pincode</label>
-                        <p>{listing.address.pincode || 'Not provided'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Landmark</label>
-                        <p>{listing.address.landmark || 'Not provided'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Space Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Ruler className="w-5 h-5" />
-                  Space Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Length (ft)</label>
-                    <p className="text-lg font-semibold">{listing.length_ft || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Width (ft)</label>
-                    <p className="text-lg font-semibold">{listing.width_ft || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Length (in)</label>
-                    <p className="text-lg font-semibold">{listing.length_in || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Width (in)</label>
-                    <p className="text-lg font-semibold">{listing.width_in || 'N/A'}</p>
-                  </div>
-                </div>
-                {(listing.length_ft && listing.width_ft) && (
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-sm font-medium">Total Area: {listing.length_ft * listing.width_ft} sq ft</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Media Gallery */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
-                  Media Gallery ({listing.media?.length || 0} {listing.media?.length === 1 ? 'image' : 'images'})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {listing.media && listing.media.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {listing.media.map((media, index) => (
-                      <div key={media.id} className="space-y-2">
-                        <div className="relative group">
-                          <img
-                            src={media.url}
-                            alt={`Space image ${index + 1}`}
-                            className="w-full h-64 object-cover rounded-lg border shadow-sm group-hover:shadow-md transition-shadow"
-                            onError={(e) => {
-                              console.error('Failed to load image:', media.url);
-                              e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
-                            }}
-                          />
-                          <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            {media.type}
-                          </div>
-                        </div>
-                        {media.metadata && (
-                          <div className="text-xs text-muted-foreground">
-                            <p>Metadata: {JSON.stringify(media.metadata)}</p>
-                          </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Location</h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-gray-600 mt-1" />
+                    <div className="space-y-2">
+                      <p className="font-semibold">{formatAddress(listing.address)}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                        {listing.address.address_line1 && (
+                          <p><span className="font-medium">Address:</span> {listing.address.address_line1}</p>
+                        )}
+                        {listing.address.village && (
+                          <p><span className="font-medium">Village:</span> {listing.address.village}</p>
+                        )}
+                        {listing.address.city && (
+                          <p><span className="font-medium">City:</span> {listing.address.city}</p>
+                        )}
+                        {listing.address.district && (
+                          <p><span className="font-medium">District:</span> {listing.address.district}</p>
+                        )}
+                        {listing.address.state && (
+                          <p><span className="font-medium">State:</span> {listing.address.state}</p>
+                        )}
+                        {listing.address.pincode && (
+                          <p><span className="font-medium">Pincode:</span> {listing.address.pincode}</p>
+                        )}
+                        {listing.address.landmark && (
+                          <p><span className="font-medium">Landmark:</span> {listing.address.landmark}</p>
                         )}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No media available for this space</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+              </div>
+            )}
 
-          {/* Sidebar - Actions */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  className="w-full"
-                  onClick={() => handleStatusChange('approved')}
-                  disabled={listing.list_status === 'approved' || actionLoading}
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  {actionLoading ? 'Processing...' : 'Approve Listing'}
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => handleStatusChange('rejected')}
-                  disabled={listing.list_status === 'rejected' || actionLoading}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  {actionLoading ? 'Processing...' : 'Reject Listing'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Listing Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Listing Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  {getStatusBadge(listing.list_status || 'pending')}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Type</span>
-                  <span className="text-sm font-medium">{listing.type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Created</span>
-                  <span className="text-sm font-medium">
-                    {listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Media Count</span>
-                  <span className="text-sm font-medium">{listing.media?.length || 0}</span>
-                </div>
-                {(listing.length_ft && listing.width_ft) && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Area</span>
-                    <span className="text-sm font-medium">{listing.length_ft * listing.width_ft} sq ft</span>
+            {/* Listing Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Listing Information</h3>
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-gray-600" />
+                  <div>
+                    <p className="text-sm text-gray-500">Created Date</p>
+                    <p className="font-semibold">
+                      {listing.created_at ? new Date(listing.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      }) : 'N/A'}
+                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="w-5 h-5 text-gray-600" />
+                  <div>
+                    <p className="text-sm text-gray-500">Media Count</p>
+                    <p className="font-semibold">{listing.media?.length || 0} images</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
