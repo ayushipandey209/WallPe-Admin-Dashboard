@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, List, Users, CheckCircle, Bell, BarChart3, Settings, Menu, X } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from './components/ui/sheet';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { ListingsManagement } from './components/ListingsManagement';
+import { ListingDetailsScreen } from './components/ListingDetailsScreen';
 import { UserManagement } from './components/UserManagement';
 import { ApprovalsPage } from './components/ApprovalsPage';
 import { NotificationsPage } from './components/NotificationsPage';
@@ -28,11 +30,10 @@ const navigationItems: NavigationItem[] = [
   { id: 'settings', label: 'Settings', icon: Settings, component: SettingsPage },
 ];
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+function AppLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const ActiveComponent = navigationItems.find(item => item.id === activeTab)?.component || DashboardOverview;
 
   const SidebarContent = () => (
     <nav className="flex flex-col h-full">
@@ -49,13 +50,16 @@ export default function App() {
         <div className="space-y-1">
           {navigationItems.map((item) => {
             const Icon = item.icon;
+            const isActive = location.pathname === `/${item.id}` || 
+              (item.id === 'listings' && location.pathname.startsWith('/listings'));
+            
             return (
               <Button
                 key={item.id}
-                variant={activeTab === item.id ? 'default' : 'ghost'}
+                variant={isActive ? 'default' : 'ghost'}
                 className="w-full justify-start gap-2"
                 onClick={() => {
-                  setActiveTab(item.id);
+                  navigate(`/${item.id}`);
                   setSidebarOpen(false);
                 }}
               >
@@ -68,6 +72,13 @@ export default function App() {
       </div>
     </nav>
   );
+
+  // Check if we're on a details page
+  const isDetailsPage = location.pathname.startsWith('/listings/') && location.pathname !== '/listings';
+
+  if (isDetailsPage) {
+    return <ListingDetailsScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -102,10 +113,28 @@ export default function App() {
           />
           
           <main className="flex-1 overflow-auto bg-muted/30 p-4 lg:p-6">
-            <ActiveComponent />
+            <Routes>
+              <Route path="/" element={<DashboardOverview />} />
+              <Route path="/dashboard" element={<DashboardOverview />} />
+              <Route path="/listings" element={<ListingsManagement />} />
+              <Route path="/listings/:id" element={<ListingDetailsScreen />} />
+              <Route path="/users" element={<UserManagement />} />
+              <Route path="/approvals" element={<ApprovalsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
           </main>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppLayout />
+    </Router>
   );
 }

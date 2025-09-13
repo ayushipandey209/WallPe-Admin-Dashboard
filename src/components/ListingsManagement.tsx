@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Eye, Filter, Download, Check, X, Search, MoreHorizontal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, Filter, Download, Check, X, Search, MoreHorizontal, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,23 +9,81 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { mockListings, type Listing } from '../data/mockData';
+import { ListingService, type ListingWithDetails } from '../services/listingService';
+import { mockListings } from '../data/mockData';
 
 export function ListingsManagement() {
-  const [listings, setListings] = useState<Listing[]>(mockListings);
+  const navigate = useNavigate();
+  const [listings, setListings] = useState<ListingWithDetails[]>([]);
   const [selectedListings, setSelectedListings] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [usingMockData, setUsingMockData] = useState(false);
+
+  // Fetch listings on component mount
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('=== ATTEMPTING TO FETCH FROM DATABASE ===');
+        const data = await ListingService.getAllListings();
+        console.log('Database fetch successful, got', data.length, 'listings');
+        console.log('First listing data:', data[0]);
+        setListings(data);
+        setUsingMockData(false);
+      } catch (err) {
+        console.error('Error fetching listings from database:', err);
+        console.log('Falling back to mock data...');
+        
+        // Convert mock data to the expected format
+        const mockDataAsListings: ListingWithDetails[] = mockListings.map(mock => ({
+          id: mock.id,
+          name: mock.description,
+          phone_number: '+1234567890', // Default phone
+          profile_id: mock.userId,
+          length_ft: 10,
+          width_ft: 8,
+          created_at: mock.dateAdded,
+          address_id: null,
+          type: mock.type,
+          notes: mock.description,
+          location: null,
+          length_in: 120,
+          width_in: 96,
+          status: mock.status,
+          media: mock.images.map((url, index) => ({
+            id: `mock-media-${index}`,
+            created_at: new Date().toISOString(),
+            space_id: mock.id,
+            type: 'image',
+            url: url,
+            metadata: null
+          }))
+        }));
+        
+        setListings(mockDataAsListings);
+        setUsingMockData(true);
+        setError('Using demo data - database connection failed');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, []);
 
   // Filter listings based on search and filters
   const filteredListings = listings.filter(listing => {
     const matchesSearch = !searchQuery || 
       listing.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.location.toLowerCase().includes(searchQuery.toLowerCase());
+      listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (listing.address?.city && listing.address.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (listing.address?.district && listing.address.district.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (listing.notes && listing.notes.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesType = typeFilter === 'all' || listing.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || listing.status === statusFilter;
@@ -48,25 +107,42 @@ export function ListingsManagement() {
     }
   };
 
-  const handleStatusChange = (listingId: string, newStatus: 'approved' | 'denied') => {
-    setListings(listings.map(listing => 
-      listing.id === listingId ? { ...listing, status: newStatus } : listing
-    ));
+  const handleStatusChange = async (listingId: string, newStatus: 'approved' | 'denied') => {
+    try {
+      await ListingService.updateListingStatus(listingId, newStatus);
+      setListings(listings.map(listing => 
+        listing.id === listingId ? { ...listing, status: newStatus } : listing
+      ));
+    } catch (err) {
+      console.error('Error updating listing status:', err);
+      setError('Failed to update listing status. Please try again.');
+    }
   };
 
-  const handleBulkAction = (action: 'approve' | 'deny' | 'export') => {
+  const handleBulkAction = async (action: 'approve' | 'deny' | 'export') => {
     if (action === 'export') {
       // Mock export functionality
       console.log('Exporting selected listings:', selectedListings);
       return;
     }
 
-    setListings(listings.map(listing => 
-      selectedListings.includes(listing.id) 
-        ? { ...listing, status: action === 'approve' ? 'approved' : 'denied' }
-        : listing
-    ));
-    setSelectedListings([]);
+    try {
+      // Update all selected listings
+      const updatePromises = selectedListings.map(id => 
+        ListingService.updateListingStatus(id, action === 'approve' ? 'approved' : 'denied')
+      );
+      await Promise.all(updatePromises);
+
+      setListings(listings.map(listing => 
+        selectedListings.includes(listing.id) 
+          ? { ...listing, status: action === 'approve' ? 'approved' : 'denied' }
+          : listing
+      ));
+      setSelectedListings([]);
+    } catch (err) {
+      console.error('Error updating bulk status:', err);
+      setError('Failed to update listing statuses. Please try again.');
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -96,11 +172,58 @@ export function ListingsManagement() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Listings Management</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Loading listings...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Listings Management</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <p className="text-destructive mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Listings Management</CardTitle>
+          <div className="mt-4">
+            <Button 
+              onClick={() => navigate('/listings/test-listing-id')}
+              variant="outline"
+              size="sm"
+            >
+              Test Details Screen
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search and Filters */}
@@ -170,11 +293,12 @@ export function ListingsManagement() {
                     />
                   </TableHead>
                   <TableHead>Listing ID</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Owner</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Size</TableHead>
                   <TableHead>Date Added</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -188,87 +312,50 @@ export function ListingsManagement() {
                         onCheckedChange={(checked) => handleSelectListing(listing.id, checked as boolean)}
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{listing.id}</TableCell>
-                    <TableCell>{listing.userName}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{listing.location}</TableCell>
+                    <TableCell className="font-mono text-sm">{listing.id.slice(0, 8)}...</TableCell>
+                    <TableCell className="font-medium">{listing.name}</TableCell>
+                    <TableCell>{listing.profile?.name || 'Unknown'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {listing.address ? 
+                        `${listing.address.city || ''}, ${listing.address.district || ''}`.trim() || 
+                        `${listing.address.village || ''}, ${listing.address.state || ''}`.trim() || 
+                        'No location' 
+                        : 'No address'
+                      }
+                    </TableCell>
                     <TableCell>{getTypeBadge(listing.type)}</TableCell>
-                    <TableCell>{getStatusBadge(listing.status)}</TableCell>
-                    <TableCell>{formatCurrency(listing.price)}</TableCell>
-                    <TableCell>{new Date(listing.dateAdded).toLocaleDateString()}</TableCell>
+                    <TableCell>{getStatusBadge(listing.status || 'pending')}</TableCell>
+                    <TableCell>
+                      {listing.length_ft && listing.width_ft ? 
+                        `${listing.length_ft}ft × ${listing.width_ft}ft` : 
+                        'N/A'
+                      }
+                    </TableCell>
+                    <TableCell>{listing.created_at ? new Date(listing.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" variant="ghost" onClick={() => setSelectedListing(listing)}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Listing Details - {listing.id}</DialogTitle>
-                            </DialogHeader>
-                            {selectedListing && (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="text-sm text-muted-foreground">User</label>
-                                    <p>{selectedListing.userName}</p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm text-muted-foreground">Type</label>
-                                    <p className="capitalize">{selectedListing.type}</p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm text-muted-foreground">Price</label>
-                                    <p>{formatCurrency(selectedListing.price)}</p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm text-muted-foreground">Status</label>
-                                    <p className="capitalize">{selectedListing.status}</p>
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="text-sm text-muted-foreground">Location</label>
-                                  <p>{selectedListing.location}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm text-muted-foreground">Description</label>
-                                  <p>{selectedListing.description}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm text-muted-foreground">Images</label>
-                                  <div className="grid grid-cols-2 gap-2 mt-2">
-                                    {selectedListing.images.map((image, index) => (
-                                      <img
-                                        key={index}
-                                        src={image}
-                                        alt={`Listing ${index + 1}`}
-                                        className="w-full h-32 object-cover rounded-lg border"
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="flex gap-2 pt-4">
-                                  <Button 
-                                    onClick={() => handleStatusChange(selectedListing.id, 'approved')}
-                                    disabled={selectedListing.status === 'approved'}
-                                  >
-                                    <Check className="w-4 h-4 mr-2" />
-                                    Approve
-                                  </Button>
-                                  <Button 
-                                    variant="destructive"
-                                    onClick={() => handleStatusChange(selectedListing.id, 'denied')}
-                                    disabled={selectedListing.status === 'denied'}
-                                  >
-                                    <X className="w-4 h-4 mr-2" />
-                                    Deny
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => {
+                            console.log('=== EYE BUTTON CLICKED ===');
+                            console.log('Listing ID:', listing.id);
+                            console.log('Listing ID type:', typeof listing.id);
+                            console.log('Full listing data:', listing);
+                            console.log('Media count:', listing.media?.length || 0);
+                            console.log('Media data:', listing.media);
+                            console.log('Using mock data:', usingMockData);
+                            console.log('Navigating to:', `/listings/${listing.id}`);
+                            
+                            // Store the listing data in sessionStorage so details screen can access it
+                            sessionStorage.setItem('currentListing', JSON.stringify(listing));
+                            sessionStorage.setItem('usingMockData', JSON.stringify(usingMockData));
+                            
+                            navigate(`/listings/${listing.id}`);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="ghost">
@@ -276,6 +363,9 @@ export function ListingsManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/listings/${listing.id}`)}>
+                              View Details
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(listing.id, 'approved')}>
                               Approve
                             </DropdownMenuItem>
