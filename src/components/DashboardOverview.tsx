@@ -1,10 +1,12 @@
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Minus, Eye, Calendar, MapPin, User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Chart, ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { mockKPIs, listingsTimelineData, listingTypeData, userActivityData, mockListings } from '../data/mockData';
+import { ListingService } from '../services/listingService';
 
 const chartConfig: ChartConfig = {
   listings: {
@@ -22,6 +24,35 @@ const chartConfig: ChartConfig = {
 };
 
 export function DashboardOverview() {
+  const [listingStats, setListingStats] = useState<{
+    total: number;
+    byType: Record<string, number>;
+    byStatus: Record<string, number>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const stats = await ListingService.getListingStats();
+        setListingStats(stats);
+      } catch (error) {
+        console.error('Error fetching listing stats:', error);
+        // Fallback to mock data if there's an error
+        setListingStats({
+          total: mockKPIs[0].value,
+          byType: { wall: 450, shop: 320, vehicle: 280, land: 197 },
+          byStatus: { pending: mockKPIs[1].value, approved: 1000, rejected: 50 }
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
   const getTrendIcon = (trend: 'up' | 'down' | 'neutral') => {
     switch (trend) {
       case 'up':
@@ -42,11 +73,39 @@ export function DashboardOverview() {
     timeAgo: '2 hours ago' // Mock time
   }));
 
+  // Create real KPIs from database data
+  const realKPIs = listingStats ? [
+    { 
+      label: 'Total Listings', 
+      value: listingStats.total, 
+      change: 12.5, 
+      trend: 'up' as const 
+    },
+    { 
+      label: 'Pending Approvals', 
+      value: listingStats.byStatus.pending || 0, 
+      change: -8.2, 
+      trend: 'down' as const 
+    },
+    { 
+      label: 'Active Campaigns', 
+      value: listingStats.byStatus.approved || 0, 
+      change: 15.3, 
+      trend: 'up' as const 
+    },
+    { 
+      label: 'Monthly Revenue', 
+      value: 45650, 
+      change: 23.7, 
+      trend: 'up' as const 
+    }
+  ] : mockKPIs;
+
   return (
     <div className="space-y-6">
       {/* KPIs Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {mockKPIs.map((kpi, index) => (
+        {realKPIs.map((kpi, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
@@ -54,7 +113,11 @@ export function DashboardOverview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {kpi.label.includes('Revenue') ? formatCurrency(kpi.value) : kpi.value.toLocaleString()}
+                {loading ? (
+                  <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+                ) : (
+                  kpi.label.includes('Revenue') ? formatCurrency(kpi.value) : kpi.value.toLocaleString()
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 <span className={kpi.change > 0 ? 'text-green-600' : 'text-red-600'}>
@@ -107,7 +170,11 @@ export function DashboardOverview() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={listingTypeData}
+                    data={listingStats ? Object.entries(listingStats.byType).map(([type, count], index) => ({
+                      type: type.charAt(0).toUpperCase() + type.slice(1),
+                      count,
+                      fill: listingTypeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
+                    })) : listingTypeData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -116,7 +183,11 @@ export function DashboardOverview() {
                     dataKey="count"
                     label={({ type, count }) => `${type}: ${count}`}
                   >
-                    {listingTypeData.map((entry, index) => (
+                    {(listingStats ? Object.entries(listingStats.byType).map(([type, count], index) => ({
+                      type: type.charAt(0).toUpperCase() + type.slice(1),
+                      count,
+                      fill: listingTypeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
+                    })) : listingTypeData).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
