@@ -59,10 +59,11 @@
       "scripts": {
         "dev": "vite",
         "build": "npx vite build",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "vercel-build": "vite build"
       },
       "engines": {
-        "node": "18.x"
+        "node": "22.x"
       }
     }
     
