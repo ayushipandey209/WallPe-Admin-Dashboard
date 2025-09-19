@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Eye, MessageSquare, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Check, X, Eye, MessageSquare, Clock, CheckCircle, XCircle, Loader2, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ListingService, type ListingWithDetails } from '../services/listingService';
 
 export function ApprovalsPage() {
@@ -16,6 +17,7 @@ export function ApprovalsPage() {
   const [approvalReason, setApprovalReason] = useState('');
   const [selectedListing, setSelectedListing] = useState<ListingWithDetails | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,17 +40,25 @@ export function ApprovalsPage() {
     fetchListings();
   }, []);
 
-  // Filter listings based on active filter
+  // Filter listings based on active filter and status filter
   const getFilteredListings = () => {
+    let filtered = listings;
+
+    // Apply status filter first
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(listing => listing.list_status === statusFilter);
+    }
+
+    // Then apply tab filter
     switch (activeFilter) {
       case 'pending':
-        return listings.filter(listing => listing.list_status === 'pending');
+        return filtered.filter(listing => listing.list_status === 'pending');
       case 'approved':
-        return listings.filter(listing => listing.list_status === 'approved');
+        return filtered.filter(listing => listing.list_status === 'approved');
       case 'denied':
-        return listings.filter(listing => listing.list_status === 'rejected');
+        return filtered.filter(listing => listing.list_status === 'rejected');
       default:
-        return listings;
+        return filtered;
     }
   };
 
@@ -160,11 +170,17 @@ export function ApprovalsPage() {
   };
 
   const getFilterCounts = () => {
+    // First apply status filter
+    let baseListings = listings;
+    if (statusFilter !== 'all') {
+      baseListings = listings.filter(l => l.list_status === statusFilter);
+    }
+
     return {
-      all: listings.length,
-      pending: listings.filter(l => l.list_status === 'pending').length,
-      approved: listings.filter(l => l.list_status === 'approved').length,
-      denied: listings.filter(l => l.list_status === 'rejected').length
+      all: baseListings.length,
+      pending: baseListings.filter(l => l.list_status === 'pending').length,
+      approved: baseListings.filter(l => l.list_status === 'approved').length,
+      denied: baseListings.filter(l => l.list_status === 'rejected').length
     };
   };
 
@@ -209,12 +225,58 @@ export function ApprovalsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold">Listing Approvals</h2>
-        <p className="text-muted-foreground">
-          Manage all listing approvals and reviews
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Listing Approvals</h2>
+          <p className="text-muted-foreground">
+            Manage all listing approvals and reviews
+          </p>
+        </div>
+        
+        {/* Status Filter */}
+        <div className="flex items-center gap-2">
+          <Filter className={`w-4 h-4 ${statusFilter !== 'all' ? 'text-blue-600' : 'text-muted-foreground'}`} />
+          <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+            <SelectTrigger className={`w-40 ${statusFilter !== 'all' ? 'border-blue-300 bg-blue-50' : ''}`}>
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending Only</SelectItem>
+              <SelectItem value="approved">Approved Only</SelectItem>
+              <SelectItem value="rejected">Rejected Only</SelectItem>
+            </SelectContent>
+          </Select>
+          {statusFilter !== 'all' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Active Filters Indicator */}
+      {(statusFilter !== 'all') && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <Filter className="w-4 h-4 text-blue-600" />
+          <span className="text-sm text-blue-800">
+            Showing: <span className="font-medium capitalize">{statusFilter}</span> listings only
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+            className="ml-auto text-blue-600 hover:text-blue-800"
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as any)}>
