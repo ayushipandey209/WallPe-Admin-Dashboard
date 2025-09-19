@@ -5,8 +5,10 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
-import { mockKPIs, listingsTimelineData, listingTypeData, userActivityData, mockListings } from '../data/mockData';
+import { mockKPIs, mockListings } from '../data/mockData';
 import { ListingService } from '../services/listingService';
+import { AnalyticsService, type TimelineDataPoint, type ListingTypeDataPoint, type RecentActivityItem } from '../services/analyticsService';
+import { supabase } from '../services/supabase';
 
 const chartConfig: ChartConfig = {
   listings: {
@@ -29,28 +31,82 @@ export function DashboardOverview() {
     byType: Record<string, number>;
     byStatus: Record<string, number>;
   } | null>(null);
+  const [timelineData, setTimelineData] = useState<TimelineDataPoint[]>([]);
+  const [typeData, setTypeData] = useState<ListingTypeDataPoint[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const stats = await ListingService.getListingStats();
+        
+        
+        // Fetch all data in parallel
+        const [stats, timeline, type, activity] = await Promise.all([
+          ListingService.getListingStats(),
+          AnalyticsService.getListingsTimelineData(),
+          AnalyticsService.getListingTypeData(),
+          AnalyticsService.getRecentActivity(5)
+        ]);
+        
+        console.log('Fetched listing stats:', stats);
+        console.log('Fetched timeline data:', timeline);
+        console.log('Fetched type data:', type);
+        console.log('Fetched recent activity:', activity);
+        
         setListingStats(stats);
+        setTimelineData(timeline);
+        setTypeData(type);
+        setRecentActivity(activity);
       } catch (error) {
-        console.error('Error fetching listing stats:', error);
+        console.error('Error fetching data:', error);
         // Fallback to mock data if there's an error
         setListingStats({
           total: mockKPIs[0].value,
           byType: { wall: 450, shop: 320, vehicle: 280, land: 197 },
           byStatus: { pending: mockKPIs[1].value, approved: 1000, rejected: 50 }
         });
+        // Fallback timeline data
+        setTimelineData([
+          { month: 'Jan', listings: 45 },
+          { month: 'Feb', listings: 52 },
+          { month: 'Mar', listings: 48 },
+          { month: 'Apr', listings: 61 },
+          { month: 'May', listings: 55 },
+          { month: 'Jun', listings: 67 },
+          { month: 'Jul', listings: 73 },
+          { month: 'Aug', listings: 69 },
+          { month: 'Sep', listings: 82 },
+          { month: 'Oct', listings: 78 },
+          { month: 'Nov', listings: 85 },
+          { month: 'Dec', listings: 91 }
+        ]);
+        // Fallback type data
+        setTypeData([
+          { type: 'Wall', count: 450, fill: 'var(--chart-1)' },
+          { type: 'Shop', count: 320, fill: 'var(--chart-2)' },
+          { type: 'Vehicle', count: 280, fill: 'var(--chart-3)' },
+          { type: 'Land', count: 197, fill: 'var(--chart-4)' }
+        ]);
+        // Fallback recent activity data
+        setRecentActivity(mockListings.slice(0, 5).map(listing => ({
+          id: listing.id,
+          userName: listing.userName,
+          userEmail: '+91 98765 43210', // Mock phone number
+          type: listing.type,
+          location: listing.location,
+          status: listing.status,
+          price: listing.price,
+          dateAdded: listing.dateAdded,
+          timeAgo: '2 hours ago'
+        })));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchData();
   }, []);
 
   const getTrendIcon = (trend: 'up' | 'down' | 'neutral') => {
@@ -68,10 +124,6 @@ export function DashboardOverview() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
   };
 
-  const recentActivity = mockListings.slice(0, 5).map(listing => ({
-    ...listing,
-    timeAgo: '2 hours ago' // Mock time
-  }));
 
   // Create real KPIs from database data
   const realKPIs = listingStats ? [
@@ -141,7 +193,7 @@ export function DashboardOverview() {
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={listingsTimelineData}>
+                <LineChart data={timelineData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -173,8 +225,8 @@ export function DashboardOverview() {
                     data={listingStats ? Object.entries(listingStats.byType).map(([type, count], index) => ({
                       type: type.charAt(0).toUpperCase() + type.slice(1),
                       count,
-                      fill: listingTypeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
-                    })) : listingTypeData}
+                      fill: typeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
+                    })) : typeData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -186,8 +238,8 @@ export function DashboardOverview() {
                     {(listingStats ? Object.entries(listingStats.byType).map(([type, count], index) => ({
                       type: type.charAt(0).toUpperCase() + type.slice(1),
                       count,
-                      fill: listingTypeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
-                    })) : listingTypeData).map((entry, index) => (
+                      fill: typeData[index]?.fill || `var(--chart-${(index % 4) + 1})`
+                    })) : typeData).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
@@ -210,7 +262,7 @@ export function DashboardOverview() {
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={userActivityData}>
+                <BarChart data={[]}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -243,21 +295,31 @@ export function DashboardOverview() {
                     <div>
                       <p className="text-sm font-medium">{activity.userName}</p>
                       <p className="text-xs text-muted-foreground">
-                        Added {activity.type} listing - {activity.location}
+                        {activity.userEmail} • Added {activity.type} listing
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.location}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant={
-                        activity.status === 'approved' ? 'default' : 
-                        activity.status === 'pending' ? 'secondary' : 
-                        'destructive'
-                      }
-                    >
-                      {activity.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{activity.timeAgo}</span>
+                  <div className="flex flex-col items-end space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <Badge
+                        variant={
+                          activity.status === 'approved' ? 'default' : 
+                          activity.status === 'pending' ? 'secondary' : 
+                          'destructive'
+                        }
+                      >
+                        {activity.status}
+                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-green-600">
+                        {formatCurrency(activity.price)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{activity.timeAgo}</p>
+                    </div>
                   </div>
                 </div>
               ))}

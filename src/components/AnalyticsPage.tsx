@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, TrendingUp, Calendar, MapPin } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Chart, ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { listingsTimelineData, listingTypeData, userActivityData } from '../data/mockData';
+import { AnalyticsService, type TimelineDataPoint, type ListingTypeDataPoint, type UserActivityDataPoint } from '../services/analyticsService';
 
 const chartConfig: ChartConfig = {
   listings: {
@@ -57,6 +57,60 @@ const locationData = [
 export function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('6months');
   const [reportType, setReportType] = useState('overview');
+  const [timelineData, setTimelineData] = useState<TimelineDataPoint[]>([]);
+  const [typeData, setTypeData] = useState<ListingTypeDataPoint[]>([]);
+  const [userActivityData, setUserActivityData] = useState<UserActivityDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all analytics data in parallel
+        const [timeline, type, userActivity] = await Promise.all([
+          AnalyticsService.getListingsTimelineData(),
+          AnalyticsService.getListingTypeData(),
+          AnalyticsService.getUserActivityData()
+        ]);
+        
+        console.log('Fetched analytics data:', { timeline, type, userActivity });
+        
+        setTimelineData(timeline);
+        setTypeData(type);
+        setUserActivityData(userActivity);
+      } catch (error) {
+        console.error('Error fetching analytics data:', error);
+        // Fallback to mock data if there's an error
+        setTimelineData([
+          { month: 'Jan', listings: 45 },
+          { month: 'Feb', listings: 52 },
+          { month: 'Mar', listings: 48 },
+          { month: 'Apr', listings: 61 },
+          { month: 'May', listings: 55 },
+          { month: 'Jun', listings: 67 }
+        ]);
+        setTypeData([
+          { type: 'Wall', count: 450, fill: 'var(--chart-1)' },
+          { type: 'Shop', count: 320, fill: 'var(--chart-2)' },
+          { type: 'Vehicle', count: 280, fill: 'var(--chart-3)' },
+          { type: 'Land', count: 197, fill: 'var(--chart-4)' }
+        ]);
+        setUserActivityData([
+          { month: 'Jan', newUsers: 23, activeUsers: 142 },
+          { month: 'Feb', newUsers: 31, activeUsers: 158 },
+          { month: 'Mar', newUsers: 28, activeUsers: 163 },
+          { month: 'Apr', newUsers: 45, activeUsers: 180 },
+          { month: 'May', newUsers: 38, activeUsers: 195 },
+          { month: 'Jun', newUsers: 52, activeUsers: 210 }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalyticsData();
+  }, []);
 
   const handleExportReport = () => {
     // Mock export functionality
@@ -277,7 +331,7 @@ export function AnalyticsPage() {
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={listingTypeData.map(item => ({ ...item, revenue: item.count * 25000 }))}>
+                <BarChart data={typeData.map(item => ({ ...item, revenue: item.count * 25000 }))}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="type" />
                   <YAxis />
@@ -312,7 +366,7 @@ export function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {listingTypeData.map((item) => (
+                {typeData.map((item) => (
                   <tr key={item.type} className="border-b">
                     <td className="p-2 font-medium capitalize">{item.type}</td>
                     <td className="p-2 text-right">{item.count}</td>
